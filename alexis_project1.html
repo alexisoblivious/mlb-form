@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+          width: 100%;
+          height: 100vh;
+          margin: 0;
+          background-color: #1b1b32;
+          color: #f5f6f7;
+          font-family: Tahoma;
+          font-size: 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+
+        h1, p {
+          margin: 1em auto;
+          text-align: center;
+        }
+
+        .teamContainer {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin-top: 1em;
+        }
+
+        .teamDiv {
+          margin: 0 0.5em;
+        }
+    </style>
+</head>
+<body>
+    <h1>MLB Form</h1>
+     Select Date:
+     <br>
+     <label for="year">Year: </label>
+     <select id="year" name="year">
+         <option value="2019">2019</option>
+         <option value="2010">2020</option>       
+         <option value="2021">2021</option>
+         <option value="2022">2022</option>     
+         <option value="2023">2023</option>                          
+     </select>
+     <br>
+
+     <label for="month">Month: </label>
+     <select id="month" name="month">
+         <option value="01">January</option>
+         <option value="02">February</option>       
+         <option value="03">March</option>
+         <option value="04">April</option>     
+         <option value="05">May</option>  
+         <option value="06">June</option>
+         <option value="07">July</option>       
+         <option value="08">August</option>
+         <option value="09">September</option>     
+         <option value="10">October</option> 
+         <option value="11">November</option>     
+         <option value="12">December</option>                                                
+     </select>
+     <br>
+     
+     <label for="day">Day: </label>
+     <select id="day" name="day">
+         <option value="01">01</option>
+         <option value="02">02</option>       
+         <option value="03">03</option>
+         <option value="04">04</option>     
+         <option value="05">05</option>  
+         <option value="06">06</option>
+         <option value="07">07</option>       
+         <option value="08">08</option>
+         <option value="09">09</option>     
+         <option value="10">10</option> 
+         <option value="11">11</option>     
+         <option value="12">12</option> 
+         <option value="13">13</option>
+         <option value="14">14</option>       
+         <option value="15">15</option>
+         <option value="16">16</option>     
+         <option value="17">17</option>  
+         <option value="18">18</option>
+         <option value="19">19</option>       
+         <option value="20">20</option>
+         <option value="21">21</option>     
+         <option value="22">22</option>  
+         <option value="23">23</option>
+         <option value="24">24</option>       
+         <option value="25">25</option>
+         <option value="26">26</option>     
+         <option value="27">27</option>  
+         <option value="28">28</option>
+         <option value="29">29</option>       
+         <option value="30">30</option>
+         <option value="31">31</option>                                                                                                 
+     </select>
+     <br>
+
+    <input type="button" id="btnAsynch" value="Get Baseball for Date" onclick="getDataAsynch();" />
+    <br /><br />
+
+    <div id="gameInfo">
+      <h2 id="gameNumber"></h2>
+      <div class="teamContainer">
+        Home Team:<div id="homeTeamNameDiv" class="teamDiv"></div>
+        Away Team:<div id="awayTeamNameDiv" class="teamDiv"></div>
+        
+      </div>
+    </div><div id="scoreDiv"></div>
+    
+    <input type="button" id="prevGame" name="prevGame" onclick="prevGame()" value="Previous Game for this Date"></input>  
+    <input type="button" id="nextGame" name="nextGame" onclick="nextGame()" value="Next Game for this Date"></input> 
+
+    <div id="highlightNumber"></div>
+    <div id="highlightTitle"></div>
+    
+    <br>
+    <input type="button" id="viewHighlightBtn" name="viewHighlightBtn" onclick="viewHighlight()" value="Play Runback for this Highlight"></input>
+    <br>
+      <input type="button" id="prevHighlight" name="prevHighlight" onclick="prevHighlight()" value="Previous Highlight for this Game"></input>  
+      <input type="button" id="nextHighlight" name="nextHighlight" onclick="nextHighlight()" value="Next Highlight for this Game"></input> 
+
+      <script>
+        // Global Variables
+        var ISOK = 200;
+        var request = new XMLHttpRequest();
+        var jsObject;
+
+        var gameURL = "https://statsapi.mlb.com/api/v1/game/[gamePk]/content";
+        var seasonURL = "https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=[startDate]&endDate=[endDate]";
+
+        var games = [];
+        var currentGameIndex = -1;
+        var currentHighlightIndex = -1;
+
+        // Ensure the next and prev game buttons are disabled unless games are available
+        document.getElementById("nextGame").disabled = true;
+        document.getElementById("prevGame").disabled = true;
+        document.getElementById("nextHighlight").disabled = true;
+        document.getElementById("prevHighlight").disabled = true;
+        document.getElementById("highlightTitle").innerHTML = "";
+        document.getElementById("viewHighlightBtn").style.visibility = "hidden";
+
+        // Function to display game information on the page
+        function displayGame(game) {
+          var homeTeamName = game.teams.home.team.name;
+          var awayTeamName = game.teams.away.team.name;
+          var homeScore = game.teams.home.score;
+          var awayScore = game.teams.away.score;
+          var winningTeamName = homeScore > awayScore ? homeTeamName : awayTeamName;
+          var gamePk = game.gamePk;
+          const gameNumberDiv = document.getElementById("gameNumber");
+
+          document.getElementById("homeTeamNameDiv").innerHTML = homeTeamName;
+          document.getElementById("awayTeamNameDiv").innerHTML = awayTeamName;
+          document.getElementById("scoreDiv").innerHTML = `Winner: ${winningTeamName}<br>Score: ${homeScore} - ${awayScore}`;
+
+          document.getElementById("nextGame").disabled = false;
+          document.getElementById("prevGame").disabled = false;
+          document.getElementById("highlightTitle").innerHTML = "";
+          document.getElementById("viewHighlightBtn").style.visibility = "hidden";
+          gameNumberDiv.innerHTML = `Game ${currentGameIndex + 1}/${games.length}`;
+
+          currentGameIndex = games.findIndex(function (g) {
+            return g.gamePk === gamePk;
+          });
+          currentHighlightIndex = -1;
+
+          getHighlightsForGame(gamePk);
+        }
+
+        // Function to move to the next game
+        function nextGame() {
+          currentGameIndex++;
+          if (currentGameIndex >= games.length) {
+            currentGameIndex = 0;
+          }
+          displayGame(games[currentGameIndex]);
+        }
+
+        // Function to move to the previous game
+        function prevGame() {
+          currentGameIndex--;
+          if (currentGameIndex < 0) {
+            currentGameIndex = games.length - 1;
+          }
+          displayGame(games[currentGameIndex]);
+        }
+
+        // Function to make an asynchronous HTTP GET request and handle the response
+        function getJSONasync(url) {
+          request.onload = function () {
+            if (request.status === ISOK) {
+              jsObject = JSON.parse(request.responseText);
+              if (jsObject.totalGames == 0) {
+                // No games found for the specified date
+                document.getElementById("homeTeamNameDiv").innerHTML = "No games found";
+                document.getElementById("awayTeamNameDiv").innerHTML = "No games found";
+                document.getElementById("nextGame").disabled = true;
+                document.getElementById("prevGame").disabled = true;
+                document.getElementById("highlightTitle").innerHTML = "";
+                document.getElementById("viewHighlightBtn").style.visibility = "hidden";
+              } 
+              else {
+                games = jsObject.dates[0].games;
+                currentGameIndex = 0;
+                displayGame(games[currentGameIndex]);
+                document.getElementById("nextGame").disabled = false;
+                document.getElementById("prevGame").disabled = false;
+              }
+            }
+          };
+          request.open("GET", url, true);
+          request.send();
+        }
+
+        // Function to retrieve data based on selected date
+        function getDataAsynch() {
+          let year = document.getElementById("year").value;
+          let month = document.getElementById("month").value;
+          let day = document.getElementById("day").value;
+          let date = `${year}-${month}-${day}`;
+          let startDate = date;
+          let endDate = date;
+          var url = seasonURL.replace("[startDate]", startDate).replace("[endDate]", endDate);
+          getJSONasync(url);
+        }
+
+        // Function to retrieve highlights for each game
+        function getHighlightsForGame(gamePk) {
+          var url = gameURL.replace("[gamePk]", gamePk);
+          request.onload = function () {
+            if (request.status === ISOK) {
+              var highlightData = JSON.parse(request.responseText);
+              if (highlightData.highlights.totalItems === 0) {
+                // No highlights found for the game
+                games[currentGameIndex].highlights = [];
+              } else {
+                // Store the highlights for the current game
+                games[currentGameIndex].highlights = highlightData.highlights.highlights.items;
+              }
+              currentHighlightIndex = 0;
+              displayCurrentHighlight();
+            }
+          };
+          request.open("GET", url, true);
+          request.send();
+        }
+
+        // Function to display the current highlight information on the page
+        function displayCurrentHighlight() {
+          var highlightTitle = "";
+          if (games[currentGameIndex].highlights.length > 0) {
+            var currentHighlight = games[currentGameIndex].highlights[currentHighlightIndex];
+            highlightTitle = currentHighlight.headline;
+            document.getElementById("viewHighlightBtn").style.visibility = "visible";
+            document.getElementById("nextHighlight").disabled = false;
+            document.getElementById("prevHighlight").disabled = false;
+          } else {
+            document.getElementById("viewHighlightBtn").style.visibility = "hidden";
+            document.getElementById("nextHighlight").disabled = true;
+            document.getElementById("prevHighlight").disabled = true;
+          }
+          document.getElementById("highlightTitle").innerHTML = highlightTitle;
+
+          var totalHighlights = games[currentGameIndex].highlights.length;
+          var currentHighlightIndexDisplay = currentHighlightIndex + 1;
+          var highlightsNumberText = "Highlight " + currentHighlightIndexDisplay + "/" + totalHighlights;
+          document.getElementById("highlightNumber").innerHTML = highlightsNumberText;
+        }
+
+        // Function to open the selected highlight URL in a new tab
+        function viewHighlight() {
+          if (games[currentGameIndex].highlights.length > 0) {
+            var currentHighlight = games[currentGameIndex].highlights[currentHighlightIndex];
+            // Open the highlight URL in a new tab
+            var highlightURL = currentHighlight.playbacks[0].url;
+            window.open(highlightURL, "_blank");
+          }
+        }
+
+        // Function to move to the next highlight
+        function nextHighlight() {
+          currentHighlightIndex++;
+          if (currentHighlightIndex >= games[currentGameIndex].highlights.length) {
+            currentHighlightIndex = 0;
+          }
+          displayCurrentHighlight();
+        }
+
+        // Function to move to the previous highlight
+        function prevHighlight() {
+          currentHighlightIndex--;
+          if (currentHighlightIndex < 0) {
+            currentHighlightIndex = games[currentGameIndex].highlights.length - 1;
+          }
+          displayCurrentHighlight();
+        }
+    </script> 
+</body>
+</html>
